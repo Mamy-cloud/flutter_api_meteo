@@ -412,8 +412,6 @@ class _WeatherHomePageState extends State<WeatherHomePage>
   }
 
   Widget _buildStatsRow(WeatherData data) {
-    // Calcul humidité actuelle (prendre la valeur la plus proche)
-    final now = DateTime.now();
     int currentHumidity = 50;
     if (data.hourly.isNotEmpty) {
       currentHumidity = data.hourly.first.humidity;
@@ -424,9 +422,9 @@ class _WeatherHomePageState extends State<WeatherHomePage>
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.12),
+          color: Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.15)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -471,7 +469,7 @@ class _WeatherHomePageState extends State<WeatherHomePage>
     return Container(
       width: 1,
       height: 48,
-      color: Colors.white.withOpacity(0.2),
+      color: Colors.white.withValues(alpha: 0.2),
     );
   }
 
@@ -506,12 +504,12 @@ class _WeatherHomePageState extends State<WeatherHomePage>
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                   decoration: BoxDecoration(
                     color: isNow
-                        ? Colors.white.withOpacity(0.25)
-                        : Colors.white.withOpacity(0.1),
+                        ? Colors.white.withValues(alpha: 0.25)
+                        : Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isNow
-                          ? Colors.white.withOpacity(0.4)
+                          ? Colors.white.withValues(alpha: 0.4)
                           : Colors.transparent,
                     ),
                   ),
@@ -550,109 +548,123 @@ class _WeatherHomePageState extends State<WeatherHomePage>
   }
 
   Widget _buildDailyStats(WeatherData data) {
-    // Grouper par jour (prochains 5 jours)
-    final Map<String, List<HourlyWeather>> byDay = {};
-    for (final h in data.hourly) {
-      final key = '${h.time.year}-${h.time.month}-${h.time.day}';
-      byDay.putIfAbsent(key, () => []).add(h);
-    }
+  // Grouper par jour avec DateTime directement (PAS de String)
+  final Map<DateTime, List<HourlyWeather>> byDay = {};
 
-    final days = byDay.entries.take(5).toList();
+  for (final h in data.hourly) {
+    final date = DateTime(h.time.year, h.time.month, h.time.day);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Prévisions 5 jours',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 1.0,
-            ),
+    byDay.putIfAbsent(date, () => []).add(h);
+  }
+
+  final days = byDay.entries.take(5).toList();
+
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Prévisions 5 jours',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 1.0,
           ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.15)),
-            ),
-            child: Column(
-              children: days.asMap().entries.map((entry) {
-                final index = entry.key;
-                final e = entry.value;
-                final temps = e.value.map((h) => h.temperature).toList();
-                final minT = temps.reduce(min);
-                final maxT = temps.reduce(max);
-                final avgHum = (e.value.map((h) => h.humidity).reduce((a, b) => a + b) / e.value.length).round();
-                final avgTemp = temps.reduce((a, b) => a + b) / temps.length;
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+          ),
+          child: Column(
+            children: days.asMap().entries.map((entry) {
+              final index = entry.key;
+              final date = entry.value.key;
+              final list = entry.value.value;
 
-                final isLast = index == days.length - 1;
+              final temps = list.map((h) => h.temperature).toList();
+              final minT = temps.reduce(min);
+              final maxT = temps.reduce(max);
 
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 90,
-                            child: Text(
-                              _formatDayName(DateTime.parse('${e.key}T00:00')),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            _getWeatherIcon(avgTemp),
-                            style: const TextStyle(fontSize: 20),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '$avgHum%',
-                            style: const TextStyle(color: Colors.white54, fontSize: 13),
-                          ),
-                          const SizedBox(width: 16),
-                          Text(
-                            '${minT.toStringAsFixed(0)}°',
-                            style: const TextStyle(color: Colors.white54, fontSize: 14),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildTempBar(minT, maxT),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${maxT.toStringAsFixed(0)}°',
+              final avgHum = (list
+                          .map((h) => h.humidity)
+                          .reduce((a, b) => a + b) /
+                      list.length)
+                  .round();
+
+              final avgTemp =
+                  temps.reduce((a, b) => a + b) / temps.length;
+
+              final isLast = index == days.length - 1;
+
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 14),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 90,
+                          child: Text(
+                            _formatDayName(date),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        Text(
+                          _getWeatherIcon(avgTemp),
+                          style: const TextStyle(fontSize: 20),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '$avgHum%',
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 13),
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          '${minT.toStringAsFixed(0)}°',
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 14),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildTempBar(minT, maxT),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${maxT.toStringAsFixed(0)}°',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                    if (!isLast)
-                      Divider(
-                        color: Colors.white.withOpacity(0.1),
-                        height: 1,
-                        indent: 20,
-                        endIndent: 20,
-                      ),
-                  ],
-                );
-              }).toList(),
-            ),
+                  ),
+                  if (!isLast)
+                    Divider(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      height: 1,
+                      indent: 20,
+                      endIndent: 20,
+                    ),
+                ],
+              );
+            }).toList(),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildTempBar(double min, double max) {
     return Container(
